@@ -1,5 +1,7 @@
+use std::io::{self, Write};
+
 use crate::Terminal; // 由于main的pub use
-use termion::event::Key;
+use termion::{event::Key, input::TermRead};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -42,15 +44,21 @@ impl Editor {
         }
         io::stdout().flush()
     }
+
+    fn draw_welcome_message(&self) {
+        let mut welcome_message = format!("Hecto editor -- version {}", VERSION);
+        let width = self.terminal.size().width as usize;
+        let len = welcome_message.len();
+        let padding = width.saturating_sub(len) / 2;
+        let spaces = " ".repeat(padding.saturating_sub(1));
+    }
+
     fn draw_rows(&self) {
         let height = self.terminal.size().height;
         for row in 0..height - 1 {
             Terminal::clear_current_line();
             if row == height / 3 {
-                let welcome_message = format!("Hecto editor -- version {}", VERSION);
-                let width =
-                    std::cmp::min(self.terminal.size().width as usize, welcome_message.len());
-                println!("{}\r", &welcome_message[..width]);
+                self.draw_welcome_message();
             } else {
                 println!("~\r");
             }
