@@ -1,8 +1,8 @@
 use crate::Terminal; // 由于main的pub use
-use std::io::{self, stdout, Write};
 use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
@@ -10,8 +10,6 @@ pub struct Editor {
 
 impl Editor {
     pub fn run(&mut self) {
-        let _stdout = stdout().into_raw_mode().unwrap();
-
         loop {
             if let Err(error) = self.refresh_screen() {
                 die(error);
@@ -28,13 +26,15 @@ impl Editor {
     pub fn default() -> Self {
         Self {
             should_quit: false,
+            // expect: If we have a value, we return it. If we don’t have a value, we panic with the text passed to expect.
             terminal: Terminal::default().expect("Failed to initialize terminal"),
         }
     }
 
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
-        print!("{}{}", termion::clear::All, termion::cursor::Goto(1, 1));
+        Terminal::clear_screen();
         if self.should_quit {
+            Terminal::clear_screen();
             println!("Goodbye.\r");
         } else {
             self.draw_rows();
@@ -43,8 +43,14 @@ impl Editor {
         io::stdout().flush()
     }
     fn draw_rows(&self) {
-        for _ in 0..self.terminal.size().height {
-            println!("~\r");
+        let height = self.terminal.size().height;
+        for _ in 0..height - 1 {
+            Terminal::clear_current_line();
+            if row == height / 3 {
+                println!("Hecto editor -- version {}\r", VERSION)
+            } else {
+                println!("~\r");
+            }
         }
     }
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
