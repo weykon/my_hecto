@@ -44,10 +44,13 @@ impl Editor {
     }
     fn draw_rows(&self) {
         let height = self.terminal.size().height;
-        for _ in 0..height - 1 {
+        for row in 0..height - 1 {
             Terminal::clear_current_line();
             if row == height / 3 {
-                println!("Hecto editor -- version {}\r", VERSION)
+                let welcome_message = format!("Hecto editor -- version {}", VERSION);
+                let width =
+                    std::cmp::min(self.terminal.size().width as usize, welcome_message.len());
+                println!("{}\r", &welcome_message[..width]);
             } else {
                 println!("~\r");
             }
