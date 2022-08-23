@@ -20,6 +20,7 @@ impl Terminal {
                 width: size.0,
                 height: size.1,
             },
+            _stdout: stdout().into_raw_mode()?,
         })
     }
 
@@ -47,5 +48,11 @@ impl Terminal {
                 return key;
             }
         }
+    }
+    pub fn cursor_hide() {
+        print!("{}", termion::cursor::Hide);
+    }
+    pub fn cursor_show() {
+        print!("{}", termion::cursor::Show);
     }
 }

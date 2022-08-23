@@ -8,6 +8,12 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
+    cursor_position: Postion,
+}
+
+pub struct Postion {
+    pub x: usize,
+    pub y: usize,
 }
 
 impl Editor {
@@ -30,11 +36,12 @@ impl Editor {
             should_quit: false,
             // expect: If we have a value, we return it. If we don’t have a value, we panic with the text passed to expect.
             terminal: Terminal::default().expect("Failed to initialize terminal"),
+            cursor_position: Postion { x: 0, y: 0 },
         }
     }
 
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
-        Terminal::clear_screen();
+        Terminal::cursor_hide();
         if self.should_quit {
             Terminal::clear_screen();
             println!("Goodbye.\r");
@@ -42,6 +49,7 @@ impl Editor {
             self.draw_rows();
             print!("{}", termion::cursor::Goto(1, 1));
         }
+        Terminal::cursor_show();
         io::stdout().flush()
     }
 
@@ -58,7 +66,10 @@ impl Editor {
         for row in 0..height - 1 {
             Terminal::clear_current_line();
             if row == height / 3 {
-                self.draw_welcome_message();
+                let welcome_message = format!("Hecto editor -- version {}", VERSION);
+                let width =
+                    std::cmp::min(self.terminal.size().width as usize, welcome_message.len());
+                println!("{}\r", &welcome_message[..width])
             } else {
                 println!("~\r");
             }
