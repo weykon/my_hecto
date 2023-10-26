@@ -16,6 +16,16 @@ pub struct Postion {
     pub y: usize,
 }
 
+impl Default for Editor {
+    fn default() -> Self {
+        Self {
+            should_quit: false,
+            terminal: Terminal::default().expect("Failed to initialine terminal"),
+            cursor_position: Postion { x: 0, y: 0 },
+        }
+    }
+}
+
 impl Editor {
     pub fn run(&mut self) {
         loop {
@@ -28,15 +38,6 @@ impl Editor {
             if let Err(error) = self.process_keypress() {
                 die(error);
             }
-        }
-    }
-
-    pub fn default() -> Self {
-        Self {
-            should_quit: false,
-            // expect: If we have a value, we return it. If we don’t have a value, we panic with the text passed to expect.
-            terminal: Terminal::default().expect("Failed to initialize terminal"),
-            cursor_position: Postion { x: 0, y: 0 },
         }
     }
 
