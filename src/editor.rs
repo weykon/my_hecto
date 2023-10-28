@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::Terminal; // 由于main的pub use
+use crate::{info::display_info, Terminal}; // 由于main的pub use
 use termion::{event::Key, input::TermRead};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -66,6 +66,9 @@ impl Editor {
         let height = self.terminal.size().height;
         for row in 0..height - 1 {
             Terminal::clear_current_line();
+            if row == 1 {
+                display_info(&self.terminal);
+            }
             if row == height / 3 {
                 let welcome_message = format!("Hecto editor -- version {}", VERSION);
                 let width =
@@ -94,6 +97,7 @@ fn die(e: std::io::Error) {
 fn read_key() -> Result<Key, std::io::Error> {
     loop {
         if let Some(key) = io::stdin().lock().keys().next() {
+            println!("{:?} pressing ... ", key);
             return key;
         }
     }
