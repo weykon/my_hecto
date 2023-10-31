@@ -25,7 +25,9 @@ impl Default for Editor {
         }
     }
 }
-
+fn die(e: std::io::Error) {
+    panic!("{}", e)
+}
 impl Editor {
     pub fn run(&mut self) {
         loop {
@@ -73,20 +75,43 @@ impl Editor {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
             Key::Ctrl('q') => self.should_quit = true,
-            Key::Up | Key::Down | Key::Left | Key::Right => self.move_cursor(pressed_key),
+            Key::Up
+            | Key::Down
+            | Key::Left
+            | Key::Right
+            | Key::PageUp
+            | Key::PageDown
+            | Key::End
+            | Key::Home => self.move_cursor(pressed_key),
             _ => (),
         }
         Ok(()) // It says “Everything is OK, and nothing has been returned”.
     }
     fn move_cursor(&mut self, key: Key) {
         let Position { mut x, mut y } = self.cursor_position;
+        let size = self.terminal.size();
+        let height = size.height.saturating_sub(1) as usize;
+        let width = size.width.saturating_sub(1) as usize;
         match key {
             Key::Up => y = y.saturating_sub(1),
-            Key::Down => y = y.saturating_sub(1),
+            Key::Down => {
+                if y < height {
+                    y = y.saturating_add(1);
+                }
+            }
             Key::Left => x = x.saturating_sub(1),
-            Key::Right => x = x.saturating_sub(1),
+            Key::Right => {
+                if x < width {
+                    x = x.saturating_add(1);
+                }
+            }
+            Key::PageUp => y = 0,
+            Key::PageDown => y = height,
+            Key::Home => x = 0,
+            Key::End => x = width,
             _ => (),
         }
+        self.cursor_position = Position { x, y }
     }
 
     fn die(e: std::io::Error) {
