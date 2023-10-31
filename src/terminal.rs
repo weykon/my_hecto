@@ -2,6 +2,8 @@ use std::io::{self, stdout, Write};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
+
+use crate::editor::Position;
 pub struct Size {
     pub width: u16,
     pub height: u16,
@@ -23,18 +25,18 @@ impl Terminal {
             _stdout: stdout().into_raw_mode()?,
         })
     }
-
     pub fn size(&self) -> &Size {
         &self.size
     }
-
     pub fn clear_screen() {
         print!("{}", termion::clear::All);
     }
-    pub fn cursor_position(x: u16, y: u16) {
-        let x = x.saturating_add(1);
-        let y = y.saturating_add(1);
-        print!("{}", termion::cursor::Goto(x, y));
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn cursor_position(position: &Position) {
+        let Position {mut x,mut y } = position;
+        x = x.saturating_add(1);
+        y = y.saturating_add(1);
+        print!("{}", termion::cursor::Goto(x as u16, y as u16));
     }
     pub fn flush() -> Result<(), std::io::Error> {
         io::stdout().flush()

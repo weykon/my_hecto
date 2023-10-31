@@ -1,17 +1,17 @@
+use crate::{
+    info::{display_info, draw_welcome_message},
+    Terminal,
+}; // 由于main的pub use
 use std::io::{self, Write};
-
-use crate::{info::display_info, Terminal}; // 由于main的pub use
 use termion::{event::Key, input::TermRead};
-
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
-    cursor_position: Postion,
+    cursor_position: Position,
 }
 
-pub struct Postion {
+pub struct Position {
     pub x: usize,
     pub y: usize,
 }
@@ -21,7 +21,7 @@ impl Default for Editor {
         Self {
             should_quit: false,
             terminal: Terminal::default().expect("Failed to initialine terminal"),
-            cursor_position: Postion { x: 0, y: 0 },
+            cursor_position: Position { x: 0, y: 0 },
         }
     }
 }
@@ -45,6 +45,7 @@ impl Editor {
         Terminal::cursor_hide();
         if self.should_quit {
             Terminal::clear_screen();
+            Terminal::cursor_position(&Position { x: 0, y: 0 });
             println!("Goodbye.\r");
         } else {
             self.draw_rows();
@@ -52,14 +53,6 @@ impl Editor {
         }
         Terminal::cursor_show();
         io::stdout().flush()
-    }
-
-    fn draw_welcome_message(&self) {
-        let mut welcome_message = format!("Hecto editor -- version {}", VERSION);
-        let width = self.terminal.size().width as usize;
-        let len = welcome_message.len();
-        let padding = width.saturating_sub(len) / 2;
-        let spaces = " ".repeat(padding.saturating_sub(1));
     }
 
     fn draw_rows(&self) {
@@ -70,35 +63,43 @@ impl Editor {
                 display_info(&self.terminal);
             }
             if row == height / 3 {
-                let welcome_message = format!("Hecto editor -- version {}", VERSION);
-                let width =
-                    std::cmp::min(self.terminal.size().width as usize, welcome_message.len());
-                println!("{}\r", &welcome_message[..width])
+                draw_welcome_message(&self.terminal);
             } else {
                 println!("~\r");
             }
         }
     }
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
-        let pressed_key = read_key()?;
+        let pressed_key = Terminal::read_key()?;
         match pressed_key {
             Key::Ctrl('q') => self.should_quit = true,
+            Key::Up | Key::Down | Key::Left | Key::Right => self.move_cursor(pressed_key),
             _ => (),
         }
         Ok(()) // It says “Everything is OK, and nothing has been returned”.
     }
-}
+    fn move_cursor(&mut self, key: Key) {
+        let Position { mut x, mut y } = self.cursor_position;
+        match key {
+            Key::Up => y = y.saturating_sub(1),
+            Key::Down => y = y.saturating_sub(1),
+            Key::Left => x = x.saturating_sub(1),
+            Key::Right => x = x.saturating_sub(1),
+            _ => (),
+        }
+    }
 
-fn die(e: std::io::Error) {
-    print!("{}", termion::clear::All);
-    panic!("{}", e);
-}
+    fn die(e: std::io::Error) {
+        print!("{}", termion::clear::All);
+        panic!("{}", e);
+    }
 
-fn read_key() -> Result<Key, std::io::Error> {
-    loop {
-        if let Some(key) = io::stdin().lock().keys().next() {
-            println!("{:?} pressing ... ", key);
-            return key;
+    fn read_key() -> Result<Key, std::io::Error> {
+        loop {
+            if let Some(key) = io::stdin().lock().keys().next() {
+                println!("{:?} pressing ... ", key);
+                return key;
+            }
         }
     }
 }
