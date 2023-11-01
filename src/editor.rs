@@ -1,16 +1,21 @@
+use crate::Row;
 use crate::{
     info::{display_info, draw_welcome_message},
-    Terminal,
+    Document, Terminal,
 }; // 由于main的pub use
+use std::env;
 use std::io::{self, Write};
+use std::ops::Deref;
 use termion::{event::Key, input::TermRead};
 
 pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
     cursor_position: Position,
+    document: Document,
+    offset: Position,
 }
-
+#[derive(Default)]
 pub struct Position {
     pub x: usize,
     pub y: usize,
@@ -18,10 +23,19 @@ pub struct Position {
 
 impl Default for Editor {
     fn default() -> Self {
+        let args: Vec<String> = env::args().collect();
+        let document = if args.len() > 1 {
+            let file_name = &args[1];
+            Document::open(&file_name).unwrap_or_default()
+        } else {
+            Document::default()
+        };
         Self {
             should_quit: false,
             terminal: Terminal::default().expect("Failed to initialine terminal"),
-            cursor_position: Position { x: 0, y: 0 },
+            document,
+            cursor_position: Position::default(),
+            offset: Position::default(),
         }
     }
 }
@@ -43,15 +57,26 @@ impl Editor {
         }
     }
 
+    fn draw_row(&self, row: &Row) {
+        let width = self.terminal.size().width as usize;
+        let start = self.offset.x;
+        let end = self.offset.x + width;
+        let row = row.render(start, end);
+        println!("{}\r", row)
+    }
+
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         Terminal::cursor_hide();
         if self.should_quit {
             Terminal::clear_screen();
-            Terminal::cursor_position(&Position { x: 0, y: 0 });
+            Terminal::cursor_position(&Position::default());
             println!("Goodbye.\r");
         } else {
             self.draw_rows();
-            print!("{}", termion::cursor::Goto(1, 1));
+            Terminal::cursor_position(&Position {
+                x: self.cursor_position.x.saturating_sub(self.offset.x),
+                y: self.cursor_position.y.saturating_sub(self.offset.y),
+            })
         }
         Terminal::cursor_show();
         io::stdout().flush()
@@ -59,12 +84,14 @@ impl Editor {
 
     fn draw_rows(&self) {
         let height = self.terminal.size().height;
-        for row in 0..height - 1 {
+        for terminal_row in 0..height - 1 {
             Terminal::clear_current_line();
-            if row == 1 {
+            if terminal_row == 1 && self.document.is_empty() {
                 display_info(&self.terminal);
             }
-            if row == height / 3 {
+            if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
+                self.draw_row(row);
+            } else if terminal_row == height / 3 && self.document.is_empty() {
                 draw_welcome_message(&self.terminal);
             } else {
                 println!("~\r");
@@ -85,13 +112,34 @@ impl Editor {
             | Key::Home => self.move_cursor(pressed_key),
             _ => (),
         }
+        self.scroll();
         Ok(()) // It says “Everything is OK, and nothing has been returned”.
+    }
+    fn scroll(&mut self) {
+        let Position { x, y } = self.cursor_position;
+        let width = self.terminal.size().width as usize;
+        let height = self.terminal.size().height as usize;
+        let mut offset = &mut self.offset;
+        if y < offset.y {
+            offset.y = y;
+        } else if y >= offset.y.saturating_add(height) {
+            offset.y = y.saturating_sub(height).saturating_add(1);
+        }
+        if x < offset.x {
+            offset.x = x;
+        } else if x >= offset.x.saturating_add(width) {
+            offset.x = x.saturating_sub(width).saturating_add(1);
+        }
     }
     fn move_cursor(&mut self, key: Key) {
         let Position { mut x, mut y } = self.cursor_position;
         let size = self.terminal.size();
-        let height = size.height.saturating_sub(1) as usize;
-        let width = size.width.saturating_sub(1) as usize;
+        let height = self.document.len();
+        let mut width = if let Some(row) = self.document.row(y) {
+            row.len()
+        } else {
+            0
+        };
         match key {
             Key::Up => y = y.saturating_sub(1),
             Key::Down => {
@@ -111,6 +159,15 @@ impl Editor {
             Key::End => x = width,
             _ => (),
         }
+        width = if let Some(row) = self.document.row(y) {
+            row.len()
+        } else {
+            0
+        };
+        if x > width {
+            x = width;
+        }
+         
         self.cursor_position = Position { x, y }
     }
 
