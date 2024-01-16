@@ -5,9 +5,11 @@ use crate::{
 }; // 由于main的pub use
 use std::env;
 use std::io::{self, Write};
-use std::ops::Deref;
+use termion::color;
 use termion::{event::Key, input::TermRead};
 
+const STATUS_BH_COLOR: color::Rgb = color::Rgb(239, 239, 239);
+const STATUS_FG_COLOR: color::Rgb = color::Rgb(63,63,63);
 pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
@@ -73,6 +75,8 @@ impl Editor {
             println!("Goodbye.\r");
         } else {
             self.draw_rows();
+            self.draw_status_bar();
+            self.draw_message_bar();
             Terminal::cursor_position(&Position {
                 x: self.cursor_position.x.saturating_sub(self.offset.x),
                 y: self.cursor_position.y.saturating_sub(self.offset.y),
@@ -84,7 +88,7 @@ impl Editor {
 
     fn draw_rows(&self) {
         let height = self.terminal.size().height;
-        for terminal_row in 0..height - 1 {
+        for terminal_row in 0..height {
             Terminal::clear_current_line();
             if terminal_row == 1 && self.document.is_empty() {
                 display_info(&self.terminal);
@@ -132,6 +136,8 @@ impl Editor {
         }
     }
     fn move_cursor(&mut self, key: Key) {
+        let terminal_height = self.terminal.size().height as usize;
+
         let Position { mut x, mut y } = self.cursor_position;
         let size = self.terminal.size();
         let height = self.document.len();
@@ -147,14 +153,40 @@ impl Editor {
                     y = y.saturating_add(1);
                 }
             }
-            Key::Left => x = x.saturating_sub(1),
-            Key::Right => {
-                if x < width {
-                    x = x.saturating_add(1);
+            Key::Left => {
+                if x > 0 {
+                    x -= 1;
+                } else if y > 0 {
+                    y -= 1;
+                    if let Some(row) = self.document.row(y) {
+                        x = row.len();
+                    } else {
+                        x = 0;
+                    }
                 }
             }
-            Key::PageUp => y = 0,
-            Key::PageDown => y = height,
+            Key::Right => {
+                if x < width {
+                    x += 1;
+                } else if y < height {
+                    y += 1;
+                    x = 0;
+                }
+            }
+            Key::PageUp => {
+                y = if y > terminal_height {
+                    y - terminal_height
+                } else {
+                    0
+                }
+            }
+            Key::PageDown => {
+                y = if y.saturating_add(terminal_height) < height {
+                    y + terminal_height as usize
+                } else {
+                    height
+                }
+            }
             Key::Home => x = 0,
             Key::End => x = width,
             _ => (),
@@ -167,7 +199,7 @@ impl Editor {
         if x > width {
             x = width;
         }
-         
+
         self.cursor_position = Position { x, y }
     }
 
@@ -183,5 +215,28 @@ impl Editor {
                 return key;
             }
         }
+    }
+
+    fn draw_status_bar(&self) {
+        let mut status;
+        let width= self.terminal.size().width as usize;
+        let mut file_name = "[No Name]".to_string();
+        if let Some(name) = &self.document.file_name {
+            file_name = name.clone();
+            file_name.truncate(20);
+        }
+        status = format!("{} - {} lines", file_name, self.document.len());
+        if width > status.len() {
+            status.push_str(&" ".repeat(width - status.len()));
+        }
+        status.truncate(width);
+        Terminal::set_fg_color(STATUS_FG_COLOR);
+        println!("{}\r", status);
+        Terminal::reset_fg_color();
+        Terminal::reset_bg_color();
+    }
+
+    fn draw_message_bar(&self) {
+        Terminal::clear_current_line();
     }
 }

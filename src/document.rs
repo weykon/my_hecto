@@ -3,6 +3,7 @@ use std::fs;
 #[derive(Default)]
 pub struct Document {
     rows: Vec<Row>,
+    pub file_name: Option<String>,
 }
 
 impl Document {
@@ -12,7 +13,10 @@ impl Document {
         for line_content in contents.lines() {
             rows.push(Row::from(line_content));
         }
-        Ok(Self { rows })
+        Ok(Self {
+            rows,
+            file_name: Some(filename.to_string()),
+        })
     }
     pub fn row(&self, index: usize) -> Option<&Row> {
         self.rows.get(index)
@@ -24,4 +28,3 @@ impl Document {
         self.rows.len()
     }
 }
-

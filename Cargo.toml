@@ -8,3 +8,4 @@ author = ["Wykon <635883092@qq.com>"]
 
 [dependencies]
 termion = "1"
+unicode-segmentation = "1"
